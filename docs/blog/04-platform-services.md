@@ -8,7 +8,9 @@ part: 4
 
 By now the cluster exists and ArgoCD is reconciling whatever lives under `manifests/`. This post is the tour of what actually lives there: the services that turn a bare Kubernetes cluster into a platform. None of these are exotic on their own. What matters is how they are configured and wired together, because this is the plumbing that every deployed application quietly depends on. It is also the part that developers most underestimate and most appreciate once it exists.
 
-Everything below is a child application under the ArgoCD root from the previous post, each pinned to a specific Helm chart version and, where it matters, pinned to a specific node pool. The platform-plane diagram from Post 2 shows all of these services and how they sit across the ingress, application, CI/CD, data, and observability layers.
+Everything below is a child application under the ArgoCD root from the previous post, each pinned to a specific Helm chart version and, where it matters, pinned to a specific node pool. This is the whole platform plane in one picture: the ingress, application, CI/CD, data and observability layers, the external integrations they lean on, and the four isolated node pools from Post 2 at the base.
+
+![ADK IDP platform infrastructure and architecture: ingress, application, CI/CD, data and observability layers, external integrations, and the four tainted node pools inside the OVH private network.](images/04-infrastructure-architecture.webp)
 
 ## Harbor: a private registry with a security opinion
 

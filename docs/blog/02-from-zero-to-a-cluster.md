@@ -8,7 +8,7 @@ part: 2
 
 In the first post we looked at the platform from above: two planes and a contract between them. Now we start at the bottom, with the layer everything else stands on. Before there can be a registry, a GitOps engine, or an AI agent, there has to be a cluster, and that cluster has to be built in a way that is repeatable, isolated, and safe to tear down. This is the `infrastructure/` layer (originally the `ovh-cicd` repository), and it is pure Infrastructure as Code: Terraform to provision an OVH Managed Kubernetes cluster, and a GitLab pipeline to drive it.
 
-![The full platform plane: ingress, application, CI/CD, data and observability layers running on four isolated node pools inside an OVH private network. This post builds the foundation at its base; later posts fill in the services above.](images/02-infrastructure-architecture.webp)
+The node pools and private network we build here sit at the base of the full platform, which Post 4 maps out in one diagram once all the services are in place.
 
 ## The chicken-and-egg of Terraform state
 
