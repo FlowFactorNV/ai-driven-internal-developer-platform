@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitlab-runner
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    namespace: gitlab-runner
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://charts.gitlab.io
+    chart: gitlab-runner
+    targetRevision: 0.64.0
+    helm:
+      values: |
+        gitlabUrl: "https://gitlab.com/"
+        rbac:
+          create: true
+
+        nodeSelector:
+          nodepool: "ci_pool"
+
+        tolerations:
+          - key: "workload"
+            operator: "Equal"
+            value: "ci"
+            effect: "NoSchedule"
+
+        runners:
+          secret: "gitlab-runner-secret"
+          name: "k8s-cluster-runner"
+          config: |
+            [[runners]]
+              [runners.kubernetes]
+                namespace = "gitlab-runner"
+                privileged = true
+                [runners.kubernetes.node_selector]
+                  "nodepool" = "ci_pool"
+                [runners.kubernetes.node_tolerations]
+                  "workload=ci" = "NoSchedule"
+                [[runners.kubernetes.services]]
+                  name = "docker:24.0.5-dind"
+                  alias = "docker"
+                [runners.kubernetes.volumes]
+                  [[runners.kubernetes.volumes.empty_dir]]
+                    name = "docker-certs"
+                    mount_path = "/certs/client"
+                    medium = "Memory"
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

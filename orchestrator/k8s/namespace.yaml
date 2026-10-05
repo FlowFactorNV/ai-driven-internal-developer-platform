@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: adk-platform
+  labels:
+    app.kubernetes.io/part-of: adk-platform

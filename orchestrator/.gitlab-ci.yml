@@ -1,0 +1,77 @@
+# =============================================================================
+# CI/CD - Build and push all three agent images to Harbor
+# =============================================================================
+default:
+  tags:
+    - k8s-runner
+
+stages:
+  - build
+  - deploy
+
+variables:
+  IMAGE_PULL_SECRET_NAME: harbor-pull-secret
+  ADK_NAMESPACE: adk-platform
+  HARBOR_HOST: harbor.devportal.example.com
+  
+
+# ---------------------------------------------------------------------------
+# Build stage - parallel Kaniko builds (no Docker daemon needed on K8s runners)
+# ---------------------------------------------------------------------------
+.build_template: &build_template
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${HARBOR_HOST}\":{\"username\":\"${HARBOR_ROBOT_USER}\",\"password\":\"${HARBOR_ROBOT_PASS}\"}}}" > /kaniko/.docker/config.json
+  only:
+    - main
+
+build-orchestrator:
+  <<: *build_template
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/docker/Dockerfile.orchestrator"
+      --destination "${HARBOR_HOST}/apps/adk-orchestrator:${CI_COMMIT_SHORT_SHA}"
+      --destination "${HARBOR_HOST}/apps/adk-orchestrator:latest"
+
+build-gitlab-agent:
+  <<: *build_template
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/docker/Dockerfile.gitlab-agent"
+      --destination "${HARBOR_HOST}/apps/adk-gitlab-agent:${CI_COMMIT_SHORT_SHA}"
+      --destination "${HARBOR_HOST}/apps/adk-gitlab-agent:latest"
+
+build-kubernetes-agent:
+  <<: *build_template
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/docker/Dockerfile.kubernetes-agent"
+      --destination "${HARBOR_HOST}/apps/adk-kubernetes-agent:${CI_COMMIT_SHORT_SHA}"
+      --destination "${HARBOR_HOST}/apps/adk-kubernetes-agent:latest"
+
+# ---------------------------------------------------------------------------
+# Deploy stage - create/update the Harbor image pull secret in K8s
+# ---------------------------------------------------------------------------
+create-pull-secret:
+  stage: deploy
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  only:
+    - main
+  script:
+    - kubectl create namespace ${ADK_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl create secret docker-registry ${IMAGE_PULL_SECRET_NAME}
+      --docker-server=${HARBOR_HOST}
+      --docker-username=${HARBOR_ROBOT_USER}
+      --docker-password=${HARBOR_ROBOT_PASS}
+      --namespace=${ADK_NAMESPACE}
+      --dry-run=client -o yaml | kubectl apply -f -
+

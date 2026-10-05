@@ -1,0 +1,8 @@
+.aws/
+.terraform/
+*.env
+*.tfstate*
+*.tfplan
+*.tfvars
+*.lock.hcl
+kubeconfig.yaml

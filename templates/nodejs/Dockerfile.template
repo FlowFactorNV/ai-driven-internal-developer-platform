@@ -1,0 +1,113 @@
+# =============================================================================
+# IDP TEMPLATE: JavaScript / Node.js (Express / Generic Node Backend)
+# Template Version: 1.0.0
+# Maintainer: Platform Engineering
+# =============================================================================
+# [AGENT-LOCK]: This file is managed by the Internal Developer Portal.
+# [AGENT-LOCK]: Sections marked [AGENT-LOCK] must NOT be modified.
+# [AGENT-LOCK]: Sections marked [AGENT-EDIT] are the only permitted edit zones.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# STAGE 1: Dependency Installation
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: Base image selection is controlled by the platform team.
+#               Only the official node slim/alpine variant from the approved
+#               registry is permitted. Do NOT switch to a full Debian image.
+# [AGENT-EDIT]: Replace <INSERT_NODE_VERSION> with the required LTS version tag
+#               (e.g., 20, 22). Always prefer an LTS release.
+FROM node:<INSERT_NODE_VERSION>-slim AS deps
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is a mandatory security baseline step.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency manifests first for optimal layer caching.
+COPY package.json package-lock.json* ./
+
+# [AGENT-LOCK]: --omit=dev ensures production-only dependencies are installed.
+#               Do NOT change this flag; dev dependencies must not ship to prod.
+# [AGENT-LOCK]: npm ci is used (not npm install) for deterministic, locked installs.
+RUN npm ci --omit=dev
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Build (optional transpilation / bundling)
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: This stage handles TypeScript compilation or asset bundling.
+#               If the project has no build step, the agent may leave this stage
+#               as a pass-through but must NOT remove it.
+FROM node:<INSERT_NODE_VERSION>-slim AS build
+
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is mandatory here as well.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy all deps (including devDeps) for the build stage.
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+COPY . .
+
+# [AGENT-EDIT]: If a build script exists (e.g., TypeScript compilation, webpack),
+#               uncomment and set the script name. Remove if no build step exists.
+#               Replace <INSERT_BUILD_SCRIPT> (e.g., build, compile).
+# RUN npm run <INSERT_BUILD_SCRIPT>
+
+
+# -----------------------------------------------------------------------------
+# STAGE 3: Final Runtime Image
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The final stage MUST use the same approved base image family.
+FROM node:<INSERT_NODE_VERSION>-slim AS final
+
+# [AGENT-LOCK]: System package upgrade is mandatory in the final stage.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# [AGENT-LOCK]: Working directory must follow the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: Copy only the production node_modules from the deps stage.
+#               Do NOT copy node_modules directly from the build stage.
+COPY --from=deps /app/node_modules ./node_modules
+
+# [AGENT-EDIT]: Copy the correct build output directory from the build stage.
+#               If using TypeScript/bundling, adjust the source path (e.g., /app/dist).
+#               If no build step, copy source directly: COPY --from=build /app/src ./src
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+
+# [AGENT-LOCK]: Non-root user creation is a MANDATORY security control.
+#               UID/GID 1001 is the platform standard. Do NOT grant elevated privileges.
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-create-home --shell /bin/false appuser && \
+    chown -R appuser:appgroup /app
+
+# [AGENT-LOCK]: Switch to non-root user. This line must always be present.
+USER appuser
+
+# [AGENT-LOCK]: NODE_ENV must be set to production in the final stage.
+ENV NODE_ENV=production
+
+# [AGENT-EDIT]: Expose the port your application listens on.
+#               Replace <INSERT_PORT> with the actual port number (e.g., 3000, 8080).
+EXPOSE <INSERT_PORT>
+
+# [AGENT-EDIT]: Set the application start command.
+#               Replace <INSERT_START_CMD> with the appropriate entrypoint.
+#
+#   Express example:
+#     CMD ["node", "dist/server.js"]
+#
+#   Using npm start script:
+#     CMD ["npm", "start"]
+CMD <INSERT_START_CMD>

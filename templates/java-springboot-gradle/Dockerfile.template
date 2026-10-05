@@ -1,0 +1,116 @@
+# =============================================================================
+# IDP TEMPLATE: Java - Spring Boot (Layered JAR Build - Gradle)
+# Template Version: 1.0.0
+# Maintainer: Platform Engineering
+# =============================================================================
+# [AGENT-LOCK]: This file is managed by the Internal Developer Portal.
+# [AGENT-LOCK]: Sections marked [AGENT-LOCK] must NOT be modified.
+# [AGENT-LOCK]: Sections marked [AGENT-EDIT] are the only permitted edit zones.
+# =============================================================================
+# NOTE: This template uses Spring Boot's built-in layered JAR extraction
+# (spring-boot-gradle-plugin layertools) to maximise Docker cache efficiency.
+# The build.gradle MUST have layer extraction enabled or use the default Boot >= 2.3
+# behavior for the extraction step to succeed.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# STAGE 1: Build - Gradle + JDK
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The build image must use the official gradle image with JDK.
+#               Do NOT substitute with community or unapproved vendor JDK images.
+# [AGENT-EDIT]: Replace <INSERT_JAVA_VERSION> with the required LTS Java version
+#               (e.g., 17, 21). Always prefer an LTS release.
+# [AGENT-EDIT]: Replace <INSERT_GRADLE_VERSION> with the required Gradle version
+#               (e.g., 8.7).
+FROM gradle:<INSERT_GRADLE_VERSION>-jdk<INSERT_JAVA_VERSION>-jammy AS build
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is a mandatory security baseline step.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Gradle configuration first to exploit Docker layer caching for dependencies.
+# Supports both Groovy (build.gradle) and Kotlin (build.gradle.kts) DSLs.
+COPY build.gradle* settings.gradle* ./
+
+# [AGENT-LOCK]: Dependencies are downloaded in a separate, cacheable layer.
+RUN gradle dependencies --no-daemon || true
+
+COPY src ./src
+
+# [AGENT-LOCK]: Tests MUST run in CI, not inside the image build.
+#               Do NOT re-enable tests here without a security review exception.
+RUN gradle bootJar --no-daemon -x test
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Layer Extraction - Spring Boot Layertools
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: This stage uses the Spring Boot layertools to split the fat JAR
+#               into cache-optimised layers. Do NOT skip or merge this stage.
+FROM eclipse-temurin:<INSERT_JAVA_VERSION>-jre-jammy AS extractor
+
+WORKDIR /app
+
+# [AGENT-EDIT]: Replace <INSERT_ARTIFACT_NAME> with the JAR filename produced
+#               by the Gradle build (e.g., myapp-1.0.0.jar).
+#               Gradle typically outputs to build/libs/ instead of target/
+COPY --from=build /app/build/libs/<INSERT_ARTIFACT_NAME>.jar app.jar
+
+# [AGENT-LOCK]: Layer extraction command is mandatory for this template.
+#               The output directory names (dependencies, spring-boot-loader,
+#               snapshot-dependencies, application) are Spring Boot standards.
+RUN java -Djarmode=layertools -jar app.jar extract --destination extracted
+
+
+# -----------------------------------------------------------------------------
+# STAGE 3: Final Runtime Image - JRE only, layered copy
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The runtime stage MUST use the JRE-only variant.
+#               Do NOT use a full JDK image in the final stage.
+FROM eclipse-temurin:<INSERT_JAVA_VERSION>-jre-jammy AS final
+
+# [AGENT-LOCK]: System package upgrade is mandatory in the final runtime stage.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: Layer copy ORDER is critical for Docker cache efficiency.
+#               Dependencies change least frequently → copied first.
+#               Application classes change most frequently → copied last.
+#               Do NOT reorder these COPY statements.
+COPY --from=extractor /app/extracted/dependencies/          ./
+COPY --from=extractor /app/extracted/spring-boot-loader/    ./
+COPY --from=extractor /app/extracted/snapshot-dependencies/ ./
+COPY --from=extractor /app/extracted/application/           ./
+
+# [AGENT-LOCK]: Non-root user creation is a MANDATORY security control.
+#               UID/GID 1001 is the platform standard. Do NOT grant elevated privileges.
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-create-home --shell /bin/false appuser && \
+    chown -R appuser:appgroup /app
+
+# [AGENT-LOCK]: Switch to non-root user. This line must always be present.
+USER appuser
+
+# [AGENT-EDIT]: Expose the port your Spring Boot application listens on.
+#               Replace <INSERT_PORT> with the configured server.port value (e.g., 8080).
+EXPOSE <INSERT_PORT>
+
+# [AGENT-LOCK]: JVM container-awareness flags are required. Do NOT remove.
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# [AGENT-EDIT]: Set the active Spring profile for this deployment target.
+#               Replace <INSERT_SPRING_PROFILE> (e.g., prod, staging).
+ENV SPRING_PROFILES_ACTIVE=<INSERT_SPRING_PROFILE>
+
+# [AGENT-LOCK]: The entrypoint is fixed to the Spring Boot JarLauncher.
+#               This is required when using layered JAR extraction.
+#               Do NOT change to 'java -jar' or any other launcher.
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

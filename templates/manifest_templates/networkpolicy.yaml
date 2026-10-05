@@ -1,0 +1,123 @@
+# ============================================================
+# NetworkPolicy Template
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the policy rules or structure.
+#              This implements a default-deny-all posture with
+#              explicit allow rules for required traffic only.
+# ============================================================
+
+# ────────────────────────────────────────────────────────────
+# Policy 1: Default deny all ingress and egress
+# [AGENT-LOCK] - DO NOT MODIFY THIS RESOURCE
+# ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  # [AGENT-EDIT] Target namespace
+  namespace: <NAMESPACE>
+  labels:
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-LOCK]
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+
+# ────────────────────────────────────────────────────────────
+# Policy 2: Allow ingress from the NGINX Ingress controller
+# [AGENT-LOCK] - DO NOT MODIFY the namespaceSelector or the
+#                ingress-nginx label. Only edit placeholders.
+# ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  # [AGENT-EDIT]
+  name: allow-ingress-from-nginx
+  namespace: <NAMESPACE>
+  labels:
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  podSelector:
+    matchLabels:
+      # [AGENT-EDIT] Must match the app's pod labels
+      app.kubernetes.io/name: <APP_NAME>
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # [AGENT-LOCK] Allow traffic from the ingress-nginx namespace only
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          # [AGENT-EDIT] Must match the container port
+          port: <CONTAINER_PORT>
+
+---
+
+# ────────────────────────────────────────────────────────────
+# Policy 3: Allow DNS egress (required for service discovery)
+# [AGENT-LOCK] - DO NOT MODIFY THIS RESOURCE, only edit namespace placeholder
+# ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  # [AGENT-EDIT] Target namespace
+  namespace: <NAMESPACE>
+  labels:
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-LOCK]
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+
+# ────────────────────────────────────────────────────────────
+# Policy 4: Allow ACME Resolver (required for certificate provisioning)
+# [AGENT-LOCK] - DO NOT MODIFY THIS RESOURCE
+# ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-solver-ingress
+  # [AGENT-EDIT] Target namespace
+  namespace: <NAMESPACE>
+  labels:
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-LOCK]
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8089
+
+

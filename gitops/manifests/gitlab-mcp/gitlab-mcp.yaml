@@ -1,0 +1,55 @@
+  apiVersion: argoproj.io/v1alpha1
+  kind: Application
+  metadata:
+    name: gitlab-mcp-server
+    namespace: argocd
+  spec:
+    project: default
+    source:
+      repoURL: ghcr.io/yoda-digital/charts
+      chart: gitlab-mcp
+      targetRevision: 0.7.0
+      helm:
+        releaseName: gitlab-mcp-server
+        values: |
+          replicaCount: 1
+          
+          config:
+            PORT: "3000"
+            HOST: "0.0.0.0"
+            GITLAB_API_URL: "https://gitlab.com/api/v4"
+            AUTH_MODE: "oauth"
+            USE_SSE: "true"
+          
+          service:
+            type: ClusterIP
+            port: 3000
+          
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          
+          serviceAccount:
+            create: true
+          
+          probes:
+            readiness:
+              enabled: true
+              path: /healthz
+            liveness:
+              enabled: true
+              path: /healthz
+
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: gitlab-mcp-server
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true

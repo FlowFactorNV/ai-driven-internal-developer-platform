@@ -1,0 +1,78 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sonarqube
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: "https://SonarSource.github.io/helm-chart-sonarqube"
+    chart: sonarqube
+    targetRevision: 2026.3.0
+    helm:
+      values: |
+        community:
+          enabled: true
+
+        jdbcOverwrite:
+          enabled: true
+          jdbcUrl: "jdbc:postgresql://sonarqube-db-postgresql:5432/sonarqube"
+          jdbcUsername: "sonarqube"
+          jdbcSecretName: "sonarqube-secrets"
+          jdbcSecretPasswordKey: "postgresql-password"
+
+        setAdminPassword:
+          passwordSecretName: "admin-password-secret-name"
+        account:
+          adminPasswordHook:
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "100m"
+                memory: "128Mi"
+
+        nodeSelector:
+          nodepool: "sonar_pool"
+          role: "worker-sonar"
+        tolerations:
+          - key: "workload"
+            operator: "Equal"
+            value: "sonar"
+            effect: "NoSchedule"
+
+        monitoringPasscodeSecretName: "sonarqube-secrets"
+        monitoringPasscodeSecretKey: "monitoring-passcode"
+
+        #leave resources for worker agents --> sonarqube can spike usage
+        resources:
+          requests:
+            cpu: "1.0"
+            memory: "4.0Gi"
+          limits:
+            cpu: "1.5"
+            memory: "4.5Gi"
+        ingress:
+          enabled: true
+          ingressClassName: nginx
+          annotations:
+            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+          hosts:
+            - name: sonarqube.devportal.example.com
+              path: /
+          tls:
+            - secretName: sonarqube-tls-cert
+              hosts:
+                - sonarqube.devportal.example.com
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: sonarqube
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

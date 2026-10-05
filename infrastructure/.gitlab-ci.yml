@@ -1,0 +1,224 @@
+# ── Anchors ────────────────────────────────────────────────────────────────────
+
+.terraform-job: &terraform-job
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint: [""]
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform --version
+    - terraform init
+
+.kubectl-job: &kubectl-job
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  # Resolves kubeconfig from:
+  #   1. artifact produced by the `apply` job (normal pipeline run), OR
+  #   2. KUBECONFIG_B64 CI variable (standalone credential injection run)
+  before_script:
+    - |
+      if [ -f "${CI_PROJECT_DIR}/${TF_ROOT}/kubeconfig.yaml" ]; then
+        export KUBECONFIG="${CI_PROJECT_DIR}/${TF_ROOT}/kubeconfig.yaml"
+        echo "Using kubeconfig from apply artifact."
+      elif [ -n "${KUBECONFIG_B64}" ]; then
+        echo "${KUBECONFIG_B64}" | base64 -d > /tmp/kubeconfig.yaml
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "Using kubeconfig from KUBECONFIG_B64 variable."
+      else
+        echo "ERROR: No kubeconfig available. Provide apply artifact or set KUBECONFIG_B64." >&2
+        exit 1
+      fi
+    - kubectl cluster-info
+
+# ── Global config ───────────────────────────────────────────────────────────────
+
+variables:
+  TF_IN_AUTOMATION: "true"
+  TF_ROOT: "iac/k8s"
+
+cache:
+  key: "terraform-k8s-${CI_COMMIT_REF_SLUG}"
+  paths:
+    - ${TF_ROOT}/.terraform/
+    - ${TF_ROOT}/kubeconfig.yaml
+
+stages:
+  - fmt
+  - validate
+  - plan
+  - apply
+  - deploy-argocd
+
+# ── Terraform stage ─────────────────────────────────────────────────────────────
+
+format:
+  <<: *terraform-job
+  stage: fmt
+  script:
+    - terraform fmt -check
+
+validate:
+  <<: *terraform-job
+  stage: validate
+  script:
+    - terraform validate
+
+plan:
+  <<: *terraform-job
+  stage: plan
+  script:
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - ${TF_ROOT}/tfplan
+    expire_in: 1 hour
+
+apply:
+  <<: *terraform-job
+  stage: apply
+  script:
+    - terraform apply -auto-approve tfplan
+  artifacts:
+    paths:
+      - ${TF_ROOT}/kubeconfig.yaml
+  dependencies:
+    - plan
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+
+# ── deploy-argocd stage ─────────────────────────────────────────────────────────
+
+inject-credentials:
+  <<: *kubectl-job
+  stage: deploy-argocd
+  # `apply` listed as optional - allows this job to run standalone
+  # (triggered manually with KUBECONFIG_B64 set, without running Terraform)
+  needs:
+    - job: apply
+      optional: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    # 1. ArgoCD repository credentials
+    - echo "Injecting ArgoCD Git credentials..."
+    - kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: gitlab-stage-group-creds
+        namespace: argocd
+        labels:
+          argocd.argoproj.io/secret-type: repo-creds
+      stringData:
+        url: https://gitlab.com/your-org/idp-platform
+        type: git
+        username: your-registry-user
+        password: "${ARGOCD_GITLAB_TOKEN}"
+      EOF
+
+      kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+          name: argocd-notifications-secret
+          namespace: argocd
+      stringData:
+          slack-token: "${ARGOCD_SLACK_TOKEN}"
+      EOF
+
+    # 2. GitLab Runner credentials
+    - echo "Injecting GitLab Runner credentials..."
+    - kubectl create namespace gitlab-runner --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic gitlab-runner-secret \
+        --namespace gitlab-runner \
+        --from-literal=runner-token="${GITLAB_RUNNER_TOKEN}" \
+        --from-literal=runner-registration-token="" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 3. Harbor credentials
+    - echo "Injecting Harbor credentials..."
+    - kubectl create namespace harbor --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic harbor-admin-credentials \
+        --namespace harbor \
+        --from-literal=HARBOR_ADMIN_PASSWORD="${HARBOR_ADMIN_PASSWORD}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 4. OAuth2 Proxy credentials
+    - echo "Injecting OAuth2 Proxy credentials..."
+    - kubectl create namespace adk-platform --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic oauth2-proxy-creds \
+        --namespace adk-platform \
+        --from-literal=client-id="${OAUTH2_PROXY_CLIENT_ID}" \
+        --from-literal=client-secret="${OAUTH2_PROXY_CLIENT_SECRET}" \
+        --from-literal=cookie-secret="${OAUTH2_PROXY_COOKIE_SECRET}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 5. SonarQube & Postgres credentials
+    - echo "Injecting SonarQube credentials..."
+    - kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic sonarqube-secrets \
+        --namespace sonarqube \
+        --from-literal=postgresql-password="${SONAR_POSTGRES_PASS}" \
+        --from-literal=monitoring-passcode="${SONAR_MONITORING_PASS}" \
+        --from-literal=postgresql-admin-password="${SONAR_POSTGRES_ADMIN_PASS}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic admin-password-secret-name \
+        --namespace sonarqube \
+        --from-literal=password="${SONAR_ADMIN_PASSWORD}" \
+        --from-literal=currentPassword=admin \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 6. Grafana & AlertManager credentials
+    - echo "Injecting Grafana credentials..."
+    - kubectl create namespace prometheus-stack --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret generic grafana-creds \
+        --namespace prometheus-stack \
+        --from-literal=admin-user="${GRAFANA_ADMIN_USER}" \
+        --from-literal=admin-password="${GRAFANA_ADMIN_PASS}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+      kubectl create secret generic slack-alertmanager-url \
+        --namespace prometheus-stack \
+        --from-literal=slack-url="${ALERTMANAGER_SLACK_HOOK_URL}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+deploy-argocd:
+  <<: *kubectl-job
+  stage: deploy-argocd
+  needs:
+    - inject-credentials
+    - job: apply
+      optional: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    # 1. Install ArgoCD if not already present
+    - |
+      if kubectl get deployment argocd-server -n argocd > /dev/null 2>&1; then
+        echo "ArgoCD already installed, skipping."
+      else
+        echo "Installing ArgoCD..."
+        kubectl apply -n argocd --server-side \
+          -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        echo "Waiting for ArgoCD CRDs..."
+        kubectl wait --for=condition=established crd/applications.argoproj.io --timeout=120s
+        echo "Waiting for ArgoCD server..."
+        kubectl rollout status deployment/argocd-server -n argocd --timeout=120s
+      fi
+
+    # 2. Restart repo-server to pick up injected git credentials
+    - kubectl rollout restart deployment/argocd-repo-server -n argocd
+    - kubectl rollout status deployment/argocd-repo-server -n argocd --timeout=120s
+
+    # 3. Apply root app
+    - kubectl apply -f ${TF_ROOT}/manifests/root-app.yaml

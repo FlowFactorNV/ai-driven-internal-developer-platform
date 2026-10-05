@@ -1,0 +1,73 @@
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: secret
+    secret:
+      secretName: harbor-tls
+  ingress:
+    hosts:
+      core: harbor.devportal.example.com
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+externalURL: https://harbor.devportal.example.com
+existingSecretAdminPassword: harbor-admin-credentials
+
+core:
+  nodeSelector:
+    role: worker-harbor
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "harbor"
+      effect: "NoSchedule"
+
+registry:
+  relativeurls: true
+  nodeSelector:
+    role: worker-harbor
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "harbor"
+      effect: "NoSchedule"
+
+database:
+  nodeSelector:
+    role: worker-harbor
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "harbor"
+      effect: "NoSchedule"
+
+redis:
+  nodeSelector:
+    role: worker-harbor
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "harbor"
+      effect: "NoSchedule"
+
+trivy:
+  nodeSelector:
+    role: worker-harbor
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "harbor"
+      effect: "NoSchedule"
+
+persistence:
+  persistentVolumeClaim:
+    registry:
+      size: 100Gi
+    database:
+      size: 5Gi
+    redis:
+      size: 2Gi

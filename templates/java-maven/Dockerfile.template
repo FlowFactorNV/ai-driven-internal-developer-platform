@@ -1,0 +1,94 @@
+# =============================================================================
+# IDP TEMPLATE: Java (Generic Maven Build)
+# Template Version: 1.0.0
+# Maintainer: Platform Engineering
+# =============================================================================
+# [AGENT-LOCK]: This file is managed by the Internal Developer Portal.
+# [AGENT-LOCK]: Sections marked [AGENT-LOCK] must NOT be modified.
+# [AGENT-LOCK]: Sections marked [AGENT-EDIT] are the only permitted edit zones.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# STAGE 1: Build - Maven + JDK
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The build image must use the official eclipse-temurin JDK image
+#               paired with the Maven base. Do NOT use community or vendor-specific
+#               JDK images that have not been approved by the platform team.
+# [AGENT-EDIT]: Replace <INSERT_JAVA_VERSION> with the required LTS Java version
+#               (e.g., 17, 21). Always prefer an LTS release.
+FROM maven:<INSERT_MAVEN_VERSION>-eclipse-temurin-<INSERT_JAVA_VERSION> AS build
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is a mandatory security baseline step.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy POM first to exploit Docker layer caching for dependency downloads.
+COPY pom.xml .
+
+# [AGENT-LOCK]: Dependencies are downloaded in a separate layer. This step must
+#               remain separate from the compile step to preserve cache efficiency.
+RUN mvn dependency:go-offline -B --no-transfer-progress
+
+# Copy the full application source tree.
+COPY src ./src
+
+# [AGENT-LOCK]: Tests are skipped in the container build pipeline. Unit/integration
+#               tests MUST be executed in the CI pipeline prior to image build.
+#               Do NOT re-enable -DskipTests here without a security review exception.
+RUN mvn package -B --no-transfer-progress -DskipTests
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Final Runtime Image - JRE only
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The runtime stage MUST use the JRE-only variant to minimise the
+#               attack surface. Do NOT use a full JDK image for the final stage.
+# [AGENT-LOCK]: java version must match the build stage JDK version exactly.
+FROM eclipse-temurin:<INSERT_JAVA_VERSION>-jre-jammy AS final
+
+# [AGENT-LOCK]: System package upgrade is mandatory in the final stage.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-EDIT]: Copy the correct artifact from the build stage.
+#               Replace <INSERT_ARTIFACT_NAME> with the JAR filename produced
+#               by the Maven build (e.g., myapp-1.0.0.jar or myapp.jar).
+#               The destination filename app.jar is the platform standard - do
+#               NOT change the destination name.
+COPY --from=build /app/target/<INSERT_ARTIFACT_NAME>.jar app.jar
+
+# [AGENT-LOCK]: Non-root user creation is a MANDATORY security control.
+#               UID/GID 1001 is the platform standard. Do NOT grant elevated privileges.
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --no-create-home --shell /bin/false appuser && \
+    chown -R appuser:appgroup /app
+
+# [AGENT-LOCK]: Switch to non-root user. This line must always be present.
+USER appuser
+
+# [AGENT-EDIT]: Expose the port your application listens on.
+#               Replace <INSERT_PORT> with the actual port number (e.g., 8080).
+EXPOSE <INSERT_PORT>
+
+# [AGENT-LOCK]: JVM flags are set by the platform for container-aware memory
+#               management. Do NOT alter or remove these flags.
+#               -XX:+UseContainerSupport enables cgroup-based memory limits.
+#               -XX:MaxRAMPercentage caps heap at 75% of container memory.
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# [AGENT-EDIT]: Override JVM options if the application has specific tuning needs.
+#               Replace <INSERT_JVM_OPTS> or remove the ENV line if defaults suffice.
+#               Example: ENV JAVA_OPTS="-Dspring.profiles.active=prod"
+# ENV JAVA_OPTS="<INSERT_JVM_OPTS>"
+
+# [AGENT-LOCK]: The entrypoint is fixed to java -jar for all Maven-built services.
+#               Do NOT change this to a shell-form CMD.
+ENTRYPOINT ["java", "-jar", "app.jar"]

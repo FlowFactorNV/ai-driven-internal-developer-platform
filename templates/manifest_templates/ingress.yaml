@@ -1,0 +1,49 @@
+# ============================================================
+# Ingress Template (TLS Enabled)
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the ingressClassName, annotations,
+#              or pathType. These are platform standards.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # [AGENT-EDIT] Application name and namespace
+  name: <APP_NAME>
+  namespace: <NAMESPACE>
+  labels:
+    # [AGENT-EDIT]
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+  annotations:
+    # [AGENT-LOCK] Platform-standard annotations - DO NOT MODIFY
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # Added to trigger cert-manager for the certificate
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  # [AGENT-LOCK] Ingress class - DO NOT MODIFY
+  ingressClassName: nginx
+  # Added TLS configuration for the certificate
+  tls:
+    - hosts:
+        - devportal.example.com
+      # [AGENT-EDIT] Secret name for the generated certificate
+      secretName: <APP_NAME>-tls-secret
+  rules:
+    # Hostname / domain for the application
+    - host: devportal.example.com
+      http:
+        paths:
+          # [AGENT-EDIT] Endpoint path via a slash (e.g., /python-app)
+          - path: <ENDPOINT_PATH>
+            # [AGENT-LOCK] Path type - DO NOT MODIFY
+            pathType: Prefix
+            backend:
+              service:
+                # [AGENT-EDIT] Must match the Service name
+                name: <APP_NAME>
+                port:
+                  # [AGENT-EDIT] Must match the Service port
+                  number: <CONTAINER_PORT>

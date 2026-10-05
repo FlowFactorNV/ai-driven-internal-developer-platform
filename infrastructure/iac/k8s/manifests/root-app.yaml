@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-manifests
+  namespace: argocd
+  annotations:
+    # 1. Trigger for any sync status change (uses template.app-sync-status)
+    notifications.argoproj.io/subscribe.on-sync-status-unknown.slack: '#platform-alerts'
+    notifications.argoproj.io/subscribe.on-sync-running.slack: '#platform-alerts'
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: '#platform-alerts'
+
+    # 2. Trigger for a failed sync (uses template.app-sync-failed)
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: '#platform-alerts'
+spec:
+  project: default
+  source:
+    repoURL: "https://gitlab.com/your-org/idp-platform/cluster_infrastructure.git"
+    targetRevision: HEAD
+    path: manifests
+    directory:
+      recurse: true
+  destination:
+    # Deploy to the local cluster
+    server: "https://kubernetes.default.svc"
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

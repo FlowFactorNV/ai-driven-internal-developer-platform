@@ -1,0 +1,120 @@
+# =============================================================================
+# Orchestrator Agent - Deployment + Service + Ingress
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator-agent
+  namespace: adk-platform
+  labels:
+    app: orchestrator-agent
+    app.kubernetes.io/part-of: adk-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator-agent
+  template:
+    metadata:
+      labels:
+        app: orchestrator-agent
+    spec:
+      imagePullSecrets:
+        - name: harbor-pull-secret
+      containers:
+        - name: orchestrator-agent
+          image: harbor.devportal.example.com/apps/adk-orchestrator:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: adk-secrets
+                  key: GOOGLE_API_KEY
+            - name: UVICORN_ROOT_PATH
+              value: "/adk"
+            # A2A sub-agent discovery - Kubernetes DNS
+            - name: GITLAB_AGENT_URL
+              value: "http://gitlab-agent-svc.adk-platform.svc.cluster.local:8000/a2a/gitlab_agent/.well-known/agent-card.json"
+            - name: KUBERNETES_AGENT_URL
+              value: "http://kubernetes-agent-svc.adk-platform.svc.cluster.local:8000/a2a/kubernetes_agent/.well-known/agent-card.json"
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /list-apps
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /list-apps
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-agent-svc
+  namespace: adk-platform
+  labels:
+    app: orchestrator-agent
+spec:
+  selector:
+    app: orchestrator-agent
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orchestrator-agent-ingress
+  namespace: adk-platform
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    #add oauth support
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.adk-platform.svc.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://$host/oauth2/start?rd=$escaped_request_uri"
+    # Extended timeouts for LLM responses and A2A streaming
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    # SSE support - disable buffering so events stream in real-time
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/chunked-transfer-encoding: "on"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - devportal.example.com
+      secretName: adk-orchestrator-tls
+  rules:
+    - host: devportal.example.com
+      http:
+        paths:
+          - path: /adk(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: orchestrator-agent-svc
+                port:
+                  number: 8000

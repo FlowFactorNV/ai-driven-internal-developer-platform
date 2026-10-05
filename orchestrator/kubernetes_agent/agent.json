@@ -1,0 +1,38 @@
+{
+  "name": "kubernetes_agent",
+  "description": "An agent that manages Kubernetes clusters, produces deployment-ready manifests from templates, creates namespaces, and bootstraps ArgoCD applications.",
+  "url": "http://kubernetes-agent-svc:8000/a2a/kubernetes_agent",
+  "version": "1.0.0",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "skills": [
+    {
+      "id": "manifest_generation",
+      "name": "Manifest Generation",
+      "description": "Fill in Kubernetes manifest templates (Deployment, Service, NetworkPolicy, Ingress, ArgoCD Application) from placeholders.",
+      "tags": ["kubernetes", "manifests", "templates"]
+    },
+    {
+      "id": "namespace_management",
+      "name": "Namespace Management",
+      "description": "Create target namespaces on the Kubernetes cluster.",
+      "tags": ["kubernetes", "namespace"]
+    },
+    {
+      "id": "argocd_bootstrap",
+      "name": "ArgoCD Bootstrap",
+      "description": "Apply ArgoCD Application manifests to the cluster and poll sync/health status.",
+      "tags": ["kubernetes", "argocd", "gitops"]
+    },
+    {
+      "id": "resource_validation",
+      "name": "Resource Validation",
+      "description": "Map Small/Medium/Large resource tiers to exact CPU and Memory requests and limits.",
+      "tags": ["kubernetes", "resources"]
+    }
+  ]
+}

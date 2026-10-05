@@ -1,0 +1,37 @@
+# =============================================================================
+# ArgoCD Application - ADK Platform (multi-agent)
+# =============================================================================
+# This watches the k8s/ directory in the repo and auto-syncs all manifests.
+# Secrets are excluded - they must be managed out-of-band.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: adk-platform
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: adk-platform
+spec:
+  project: default
+  source:
+    repoURL: https://gitlab.com/your-org/idp-platform/adk.git
+    targetRevision: main
+    path: k8s
+    directory:
+      recurse: false
+      exclude: "secrets.yaml.template"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: adk-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

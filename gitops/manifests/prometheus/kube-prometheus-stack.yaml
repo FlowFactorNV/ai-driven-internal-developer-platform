@@ -1,0 +1,136 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-stack
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: "https://prometheus-community.github.io/helm-charts"
+    chart: kube-prometheus-stack
+    targetRevision: 85.2.2
+    helm:
+      values: |
+        prometheusOperator:
+          admissionWebhooks:
+            certManager:
+              enabled: true
+
+        # Don't need these because OVH MKS manages them, they will fire when "not found"      
+        defaultRules:
+          create: true
+          rules: 
+            kubeControllerManager: false
+            kubeSchedulerAlerting: false
+            kubeProxy: false
+            
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+
+
+        grafana:
+          admin:
+            existingSecret: "grafana-creds"
+            userKey: admin-user
+            passwordKey: admin-password
+          ingress:
+            enabled: true
+            ingressClassName: "nginx"
+            annotations:
+              cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            hosts:
+              - grafana.devportal.example.com
+            paths:
+              - /
+            tls:
+              - secretName: grafana-general-tls
+                hosts:
+                  - grafana.devportal.example.com
+
+        alertmanager:
+          tplConfig: true
+          config:
+            global:
+              resolve_timeout: 5m
+            inhibit_rules:
+              - source_matchers:
+                  - 'severity = critical'
+                target_matchers:
+                  - 'severity =~ warning|info'
+                equal:
+                  - 'namespace'
+                  - 'alertname'
+              - source_matchers:
+                  - 'severity = warning'
+                target_matchers:
+                  - 'severity = info'
+                equal:
+                  - 'namespace'
+                  - 'alertname'
+              - source_matchers:
+                  - 'alertname = InfoInhibitor'
+                target_matchers:
+                  - 'severity = info'
+                equal:
+                  - 'namespace'
+              - target_matchers:
+                  - 'alertname = InfoInhibitor'
+            route:
+              receiver: slack-notifications
+              group_by: ['alertname']
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 12h
+              routes:
+                - receiver: 'null'
+                  matchers:
+                    - alertname = "Watchdog"
+            receivers:
+              - name: 'null'
+              - name: 'slack-notifications'
+                slack_configs:
+                  - channel: '#platform-alerts'
+                    icon_emoji: ':bell:'
+                    send_resolved: true
+                    text: '{{ "{{" }} template "slack.platform.text" . {{ "}}" }}'
+                    api_url_file: '/etc/alertmanager/secrets/slack-alertmanager-url/slack-url'
+            templates:
+              - '/etc/alertmanager/config/*.tmpl'
+
+          templateFiles:
+            slack_formatting.tmpl: |-
+              {{ define "cluster" }}{{ .ExternalURL | reReplaceAll ".*alertmanager\\.(.*)" "$1" }}{{ end }}
+              {{ define "slack.platform.text" }}
+              {{- $root := . -}}
+              {{ range .Alerts }}
+                *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+                *Cluster:* {{ template "cluster" $root }}
+                *Description:* {{ .Annotations.description }}
+                *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:>
+                *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+                *Details:*
+                  {{ range .Labels.SortedPairs }} - *{{ .Name }}:* `{{ .Value }}`
+                  {{ end }}
+              {{ end }}
+              {{ end }}
+
+          alertmanagerSpec:
+            secrets:
+              - slack-alertmanager-url
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: prometheus-stack
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true

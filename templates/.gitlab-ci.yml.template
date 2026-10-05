@@ -1,0 +1,146 @@
+# [AGENT-LOCK]: Restrict the entire pipeline from running on anything other than MRs and main
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# [AGENT-LOCK]: Pipeline should run on self hosted runner, tags are immutable
+default:
+  tags:
+    - k8s-runner
+
+# [AGENT-LOCK]: Base CI stages for IDP template pipeline, now including test phase
+stages:
+  - test
+  - build-and-push
+  - configure-cluster
+
+variables:
+  # [AGENT-LOCK]: Static Harbor Variables, host and project
+  HARBOR_HOST: "harbor.devportal.example.com"
+  HARBOR_PROJECT: "apps"
+
+  # [AGENT-EDIT]: Inject the directory containing the Dockerfile (e.g., ., python, java-springboot)
+  BUILD_CONTEXT: "<INSERT_BUILD_CONTEXT>"
+
+  # [AGENT-EDIT]: Inject the user-specified image name, if no name was specified use <app_name>
+  IMAGE_NAME: "<INSERT_IMAGE_NAME>"
+
+
+  # [AGENT-EDIT]: Inject the target Kubernetes namespace for this application
+  TARGET_NAMESPACE: "<INSERT_TARGET_NAMESPACE>"
+
+  # [AGENT-EDIT]: Inject the Kubernetes image pull secret name
+  SECRET_NAME: "<INSERT_SECRET_NAME>"
+
+  # [AGENT-LOCK]: Registry URL points to Harbor
+  REGISTRY_URL: "$HARBOR_HOST"
+
+  # =========================================================
+  # [AGENT-LOCK]: CI/CD Credentials (Set in GitLab, NOT here)
+  # =========================================================
+  # IMPORTANT: These must be set as masked GitLab CI/CD variables
+  # Location: GitLab > Project > Settings > CI/CD > Variables
+  #
+  # HARBOR_ROBOT_USER: Robot account username (format: robot$<name>)
+  # HARBOR_ROBOT_PASS: Robot account password/token
+  # KUBECONFIG: Kubernetes config file (set type to "File")
+  # SONAR_TOKEN: Generated authentication token from your SonarQube instance
+  # SONAR_HOST_URL: The URL of your SonarQube instance
+
+
+# =========================================================
+# Stage 0: Code Quality & Security Scan
+# =========================================================
+# [AGENT-LOCK]: Generic multi-stack SonarQube engine. Excludes heavy package lock dirs.
+sonarqube-check:
+  stage: test
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner 
+      -Dsonar.qualitygate.wait=true
+      -Dsonar.sources=.
+      -Dsonar.projectKey=$CI_PROJECT_NAME
+      -Dsonar.exclusions="**/node_modules/**,**/bower_components/**,**/vendor/**,**/*.spec.js,**/*.test.js"
+  allow_failure: true #staging ONLY
+
+
+# =========================================================
+# Stage 1: Build and Push the Docker Image
+# =========================================================
+# [AGENT-LOCK]: Standard Docker-in-Docker build process. Do not alter runner configuration.
+build-image:
+  stage: build-and-push
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+      command: ["--tls=false"]
+  # [AGENT-LOCK]: Required for DinD on Kubernetes. TLS is disabled because certs
+  # cannot be reliably shared between containers in a Kubernetes pod. Plain TCP
+  # on port 2375 is safe here as traffic stays inside the pod.
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    # [AGENT-LOCK]: Enforce unique image tagging based on Git commit SHA
+    IMAGE_TAG: "${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:$CI_COMMIT_SHORT_SHA"
+    LATEST_TAG: "${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest"
+  # [AGENT-LOCK]: make sure this only runs on main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+  before_script:
+    # Login to Harbor using robot account credentials
+    # HARBOR_ROBOT_USER and HARBOR_ROBOT_PASS must be set as masked GitLab CI/CD variables
+    - echo "$HARBOR_ROBOT_PASS" | docker login -u "$HARBOR_ROBOT_USER" --password-stdin "$HARBOR_HOST"
+  script:
+    - echo "Building image from context $BUILD_CONTEXT"
+    - cd "$BUILD_CONTEXT"
+    - docker build -t "$IMAGE_TAG" .
+    - docker push "$IMAGE_TAG"
+    - docker tag "$IMAGE_TAG" "$LATEST_TAG"
+    - docker push "$LATEST_TAG"
+
+
+# =========================================================
+# Stage 2: Create the Kubernetes Image Pull Secret
+# =========================================================
+# [AGENT-LOCK]: Idempotent secret creation using dry-run trick. Do not alter kubectl logic.
+create-pull-secret:
+  stage: configure-cluster
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  # [AGENT-LOCK]: make sure this only runs on main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+  script:
+    - |
+      if [[ -z "$KUBECONFIG" ]]; then
+        echo "Error: KUBECONFIG variable is not set."
+        echo "Please create a GitLab CI/CD variable named 'KUBECONFIG' with your kubeconfig file content and set its type to 'File'."
+        exit 1
+      fi
+      if [[ ! -s "$KUBECONFIG" ]]; then
+        echo "Error: KUBECONFIG variable points to an empty file: $KUBECONFIG"
+        echo "Please ensure the content is correctly pasted into the GitLab CI/CD variable and its type is set to 'File'."
+        exit 1
+      fi
+      echo "Using KUBECONFIG file from variable: $KUBECONFIG"
+    - echo "Deploying secret to namespace ${TARGET_NAMESPACE}..."
+    - kubectl create namespace "$TARGET_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl create secret docker-registry "$SECRET_NAME" \
+        --docker-server="$HARBOR_HOST" \
+        --docker-username="$HARBOR_ROBOT_USER" \
+        --docker-password="$HARBOR_ROBOT_PASS" \
+        --namespace="$TARGET_NAMESPACE" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    - echo "Successfully created/updated $SECRET_NAME in $TARGET_NAMESPACE"

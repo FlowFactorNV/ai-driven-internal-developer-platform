@@ -1,0 +1,40 @@
+# ============================================================
+# Orchestrator Agent - User-facing API, delegates via A2A
+# ============================================================
+FROM python:3.14-slim AS builder
+
+WORKDIR /build
+
+# Python dependencies only - orchestrator doesn't need Node.js
+# (no MCP toolsets, it talks to sub-agents via A2A HTTP)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ============================================================
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy agent code - only the orchestrator_agent directory
+COPY orchestrator_agent/ ./orchestrator_agent/
+
+# Create non-root user and set permissions
+RUN groupadd -r adk && useradd -r -g adk -u 1000 -d /app -s /bin/bash adk && \
+    chown -R adk:adk /app && \
+    chown -R adk:adk /usr/local/lib/python3.14/site-packages/google/adk
+
+USER 1000
+
+EXPOSE 8000
+
+# Serve via adk web to include the user-facing developer UI
+CMD ["adk", "web", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--no-reload", \
+     "--url_prefix", "/adk", \
+     "/app"]

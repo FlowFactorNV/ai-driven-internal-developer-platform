@@ -1,0 +1,63 @@
+# ============================================================
+# Ingress Template (HTTPS with manual TLS Secret)
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the ingressClassName, annotations,
+#              pathType, or TLS structure. These are platform
+#              standards.
+#
+# IMPORTANT: cert-manager is NOT installed on this cluster.
+# The developer must manually create a Kubernetes TLS Secret
+# containing their certificate and private key in the target
+# namespace BEFORE the Ingress will serve HTTPS traffic.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # [AGENT-EDIT] Application name and namespace
+  name: <APP_NAME>
+  namespace: <NAMESPACE>
+  labels:
+    # [AGENT-EDIT]
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+  annotations:
+    # [AGENT-LOCK] Platform-standard annotations - DO NOT MODIFY
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  # [AGENT-LOCK] Ingress class - DO NOT MODIFY
+  ingressClassName: nginx
+
+  # ──────────────────────────────────────────────────────────
+  # [AGENT-LOCK] TLS block structure - DO NOT MODIFY structure.
+  # [AGENT-EDIT] Replace <HOSTNAME> and <TLS_SECRET_NAME> only.
+  #
+  # The TLS Secret must be manually provisioned by the developer:
+  #   kubectl create secret tls <TLS_SECRET_NAME> \
+  #     --cert=path/to/tls.crt \
+  #     --key=path/to/tls.key \
+  #     -n <NAMESPACE>
+  # ──────────────────────────────────────────────────────────
+  tls:
+    - hosts:
+        - <HOSTNAME>                  # [AGENT-EDIT]
+      secretName: <TLS_SECRET_NAME>   # [AGENT-EDIT] Must be manually provisioned
+
+  rules:
+    # [AGENT-EDIT] Hostname / domain for the application
+    - host: <HOSTNAME>
+      http:
+        paths:
+          - path: /
+            # [AGENT-LOCK] Path type - DO NOT MODIFY
+            pathType: Prefix
+            backend:
+              service:
+                # [AGENT-EDIT] Must match the Service name
+                name: <APP_NAME>
+                port:
+                  # [AGENT-EDIT] Must match the Service port
+                  number: <CONTAINER_PORT>

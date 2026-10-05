@@ -1,0 +1,50 @@
+{
+  "name": "gitlab_agent",
+  "description": "An agent that manages GitLab repositories, branches, merge requests, and CI/CD pipelines. Scoped to the your-org/idp-platform/ group.",
+  "url": "http://gitlab-agent-svc:8000/a2a/gitlab_agent",
+  "version": "1.0.0",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "skills": [
+    {
+      "id": "repository_inspection",
+      "name": "Repository Inspection",
+      "description": "List and browse existing projects, browse repository file trees, inspect project settings.",
+      "tags": ["gitlab", "repository", "inspect"]
+    },
+    {
+      "id": "file_operations",
+      "name": "File Operations",
+      "description": "Create new files in repositories on branches (never on main directly), push multiple files in a single commit.",
+      "tags": ["gitlab", "files", "commit"]
+    },
+    {
+      "id": "branch_management",
+      "name": "Branch Management",
+      "description": "Create new branches from the default branch, list branches, push files to specific branches.",
+      "tags": ["gitlab", "branches"]
+    },
+    {
+      "id": "merge_request_management",
+      "name": "Merge Request Management",
+      "description": "Create merge requests from deploy branches, list and inspect merge requests, check status.",
+      "tags": ["gitlab", "merge-request"]
+    },
+    {
+      "id": "pipeline_monitoring",
+      "name": "Pipeline Monitoring",
+      "description": "Poll CI/CD pipeline status on a repository, report pipeline pass/fail status.",
+      "tags": ["gitlab", "ci-cd", "pipeline"]
+    },
+    {
+      "id": "template_fetching",
+      "name": "Template Fetching",
+      "description": "Fetch Dockerfile, CI/CD, and Kubernetes manifest templates from the templates repository.",
+      "tags": ["gitlab", "templates"]
+    }
+  ]
+}

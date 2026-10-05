@@ -1,0 +1,20 @@
+# ============================================================
+# Namespace Template
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the label structure or add
+#              additional metadata beyond what is templated.
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  # [AGENT-EDIT] Target namespace name
+  name: <NAMESPACE>
+  labels:
+    # [AGENT-EDIT] Application and team identifiers
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+    # [AGENT-LOCK] Platform-managed label - do not remove
+    platform.example.com/managed: "true"

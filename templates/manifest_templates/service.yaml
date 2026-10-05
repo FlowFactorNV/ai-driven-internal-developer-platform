@@ -1,0 +1,35 @@
+# ============================================================
+# Service Template
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not change the service type (ClusterIP).
+#              External access is handled via Ingress, not
+#              NodePort or LoadBalancer.
+# ============================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  # [AGENT-EDIT] Application name and namespace
+  name: <APP_NAME>
+  namespace: <NAMESPACE>
+  labels:
+    # [AGENT-EDIT]
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-LOCK] Service type - DO NOT MODIFY
+  # External traffic is routed through the NGINX Ingress controller.
+  type: ClusterIP
+
+  selector:
+    # [AGENT-EDIT] Must match the Deployment's pod labels
+    app.kubernetes.io/name: <APP_NAME>
+
+  ports:
+    - name: http
+      protocol: TCP
+      # [AGENT-EDIT] Service port (typically matches container port)
+      port: <CONTAINER_PORT>
+      targetPort: <CONTAINER_PORT>

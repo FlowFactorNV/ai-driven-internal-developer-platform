@@ -1,0 +1,34 @@
+# Ignore development artifacts
+.venv/
+.adk/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Ignore secrets - never bake into images
+.env
+**/.env
+**/kubeconfig.yml
+**/kubeconfig.yaml
+
+# Ignore IDE/OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore docs and design notes
+README.md
+ADK_workflow.txt
+test_schema.py
+
+# Ignore CI and K8s manifests (not needed in agent images)
+.gitlab-ci.yml
+k8s/
+docker/
+
+# Ignore git
+.git/
+.gitignore

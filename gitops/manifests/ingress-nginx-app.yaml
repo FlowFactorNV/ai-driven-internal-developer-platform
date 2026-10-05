@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # 1. Point ArgoCD to the official NGINX Helm repository
+    repoURL: "https://kubernetes.github.io/ingress-nginx"
+    targetRevision: 4.10.0
+    chart: ingress-nginx
+
+    helm:
+      values: |
+        controller:
+          replicaCount: 2
+          config:
+            use-proxy-protocol: "true"
+            use-forwarded-headers: "true"
+            proxy-real-ip-cidr: "0.0.0.0/0" # Trusts the OVH LB to pass protocol headers
+          
+          service:
+            type: LoadBalancer
+            externalTrafficPolicy: Local
+            annotations:
+              loadbalancer.ovhcloud.com/class: "octavia"
+              loadbalancer.ovhcloud.com/flavor: "small"
+              loadbalancer.openstack.org/proxy-protocol: "true"
+              service.beta.kubernetes.io/openstack-internal-load-balancer: "false"
+  destination:
+    # Deploy to the local cluster where ArgoCD is running
+    server: "https://kubernetes.default.svc"
+    namespace: ingress-nginx
+
+  # 3. Tell ArgoCD to deploy any manual changes
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

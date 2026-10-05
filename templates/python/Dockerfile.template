@@ -1,0 +1,95 @@
+# =============================================================================
+# IDP TEMPLATE: Python (FastAPI / Generic WSGI)
+# Template Version: 1.0.0
+# Maintainer: Platform Engineering
+# =============================================================================
+# [AGENT-LOCK]: This file is managed by the Internal Developer Portal.
+# [AGENT-LOCK]: Sections marked [AGENT-LOCK] must NOT be modified.
+# [AGENT-LOCK]: Sections marked [AGENT-EDIT] are the only permitted edit zones.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# STAGE 1: Builder / Dependency Installation
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: Base image selection is controlled by the platform team.
+# [AGENT-LOCK]: Only approved slim images from the internal registry are permitted.
+# [AGENT-EDIT]: Adjust the Python minor version (e.g., 3.11, 3.12) to match the
+#               application's runtime requirement. Default is 3.12.
+#               Replace <INSERT_PYTHON_VERSION> with the target version tag.
+FROM python:<INSERT_PYTHON_VERSION>-slim AS builder
+
+# [AGENT-LOCK]: Do NOT remove or alter the working directory convention.
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is a mandatory security baseline step.
+#               Do NOT skip, pin, or remove this layer.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# [AGENT-LOCK]: Upgrade pip, setuptools, and wheel before installing deps.
+#               This is a mandatory security baseline step.
+RUN pip install --upgrade pip setuptools wheel --no-cache-dir
+
+# Copy dependency manifest first for optimal layer caching.
+COPY requirements.txt .
+
+# [AGENT-LOCK]: Dependencies are installed into a prefix to allow clean copying
+#               into the final stage. Do NOT change the target prefix.
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Final Runtime Image
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The final stage MUST use the same approved base image family.
+# [AGENT-EDIT]: Keep the Python version consistent with the builder stage above.
+FROM python:<INSERT_PYTHON_VERSION>-slim AS final
+
+# [AGENT-LOCK]: System package upgrade is mandatory in the final stage as well.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# [AGENT-LOCK]: Working directory must follow the platform standard /app path.
+WORKDIR /app
+
+# [AGENT-LOCK]: Copy installed dependencies from builder. Do NOT alter src/dest.
+COPY --from=builder /install /usr/local
+
+# Copy the application source code.
+COPY . .
+
+# [AGENT-LOCK]: Non-root user creation is a MANDATORY security control.
+#               The user 'appuser' with UID/GID 1001 is the platform standard.
+#               Do NOT remove, rename, or grant sudo/root privileges.
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid appgroup --create-home --shell /bin/false appuser && \
+    chown -R appuser:appgroup /app
+
+# [AGENT-LOCK]: Switch to non-root user. This line must always be present.
+USER appuser
+
+# [AGENT-EDIT]: Expose the port your application listens on.
+#               Replace <INSERT_PORT> with the actual port number (e.g., 8000, 5000).
+EXPOSE <INSERT_PORT>
+
+# [AGENT-LOCK]: PYTHONDONTWRITEBYTECODE and PYTHONUNBUFFERED are required for
+#               correct container logging and to avoid .pyc file generation.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/usr/local/bin:$PATH"
+
+# [AGENT-EDIT]: Set the application start command appropriate for the framework:
+#
+#   FastAPI example:
+#     CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "<INSERT_PORT>"]
+#
+#   Gunicorn/WSGI example:
+#     CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:<INSERT_PORT>", "app:application"]
+#
+#   Replace <INSERT_START_CMD> with the full tokenised command list.
+CMD <INSERT_START_CMD>

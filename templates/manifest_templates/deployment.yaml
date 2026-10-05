@@ -1,0 +1,98 @@
+# ============================================================
+# Deployment Template
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the securityContext, image pull
+#              policy, or the resource structure. These are
+#              platform-enforced policies.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # [AGENT-EDIT] Application name and namespace
+  name: <APP_NAME>
+  namespace: <NAMESPACE>
+  labels:
+    # [AGENT-EDIT]
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-EDIT] Adjust replica count if needed (default: 1)
+  replicas: 1
+  selector:
+    matchLabels:
+      # [AGENT-EDIT] Must match template labels below
+      app.kubernetes.io/name: <APP_NAME>
+  template:
+    metadata:
+      labels:
+        # [AGENT-EDIT]
+        app.kubernetes.io/name: <APP_NAME>
+    spec:
+      # [AGENT-EDIT] Service account for the team
+      serviceAccountName: <SERVICE_ACCOUNT>
+
+      # ──────────────────────────────────────────────
+      # [AGENT-LOCK] Security context - DO NOT MODIFY
+      # Containers must never run as root.
+      # ──────────────────────────────────────────────
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      # ──────────────────────────────────────────────
+      # [AGENT-LOCK] Image pull secret - DO NOT MODIFY
+      # Created by the CI/CD pipeline; must remain
+      # named "registry-credentials".
+      # ──────────────────────────────────────────────
+      imagePullSecrets:
+        - name: registry-credentials
+
+      containers:
+        # [AGENT-EDIT] Container name (usually same as app name)
+        - name: <APP_NAME>
+          volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+
+          # [AGENT-EDIT] Inject the APP_NAME. Full image URI from Harbor (harbor.devportal.example.com). ALWAYS USE ":latest" tag
+          image: harbor.devportal.example.com/apps/<APP_NAME>:latest
+
+          # [AGENT-LOCK] Always pull to ensure latest image - DO NOT MODIFY
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: <CONTAINER_PORT> # [AGENT-EDIT]
+              protocol: TCP
+
+          # ──────────────────────────────────────────
+          # [AGENT-LOCK] Resource structure - DO NOT
+          # remove requests or limits. Only the VALUES
+          # are agent-editable (must follow tier table).
+          # ──────────────────────────────────────────
+          resources:
+            requests:
+              cpu: <CPU_REQUEST> # [AGENT-EDIT] From resource tier
+              memory: <MEMORY_REQUEST> # [AGENT-EDIT] From resource tier
+              ephemeral-storage: "1Gi" # [AGENT-EDIT] Set the necessary storage request
+            limits:
+              cpu: <CPU_LIMIT> # [AGENT-EDIT] From resource tier
+              memory: <MEMORY_LIMIT> # [AGENT-EDIT] From resource tier
+              ephemeral-storage: "2Gi" # [AGENT-EDIT] Set the necessary storage limit
+
+          # ──────────────────────────────────────────
+          # [AGENT-LOCK] Container security - DO NOT MODIFY
+          # ──────────────────────────────────────────
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}

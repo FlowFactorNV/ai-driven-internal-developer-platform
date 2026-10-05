@@ -1,0 +1,101 @@
+# =============================================================================
+# IDP TEMPLATE: Go (Generic Go Module Application)
+# Template Version: 1.0.0
+# Maintainer: Platform Engineering
+# =============================================================================
+# [AGENT-LOCK]: This file is managed by the Internal Developer Portal.
+# [AGENT-LOCK]: Sections marked [AGENT-LOCK] must NOT be modified.
+# [AGENT-LOCK]: Sections marked [AGENT-EDIT] are the only permitted edit zones.
+# =============================================================================
+# NOTE: Go produces a statically linked binary. The final stage therefore uses
+# scratch (zero-OS image) for the smallest possible attack surface. The only
+# permitted alternative is gcr.io/distroless/static-debian12 if CA certificates
+# or timezone data are required - see [AGENT-EDIT] note in Stage 2.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# STAGE 1: Build - Go toolchain
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The build image must use the official golang image.
+#               Do NOT use community or vendor-patched Go images.
+# [AGENT-EDIT]: Replace <INSERT_GO_VERSION> with the required Go version
+#               (e.g., 1.22, 1.23).
+FROM golang:<INSERT_GO_VERSION>-bookworm AS build
+
+# [AGENT-LOCK]: Working directory is the platform standard.
+WORKDIR /app
+
+# [AGENT-LOCK]: System package upgrade is a mandatory security baseline step.
+RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy module files first for dependency caching.
+COPY go.mod go.sum ./
+
+# [AGENT-LOCK]: Module download is a separate cacheable layer.
+#               -mod=readonly ensures the module graph cannot be modified at build time.
+RUN go mod download -x
+
+# Copy the full application source.
+COPY . .
+
+# [AGENT-LOCK]: Build flags are standardised for production binaries:
+#               CGO_ENABLED=0  → fully static binary (required for scratch/distroless)
+#               GOOS=linux     → target OS
+#               -trimpath      → strips local build paths from binary (security)
+#               -ldflags       → strips debug info and DWARF (-s -w) for smaller binary
+#               Do NOT remove CGO_ENABLED=0 or -trimpath.
+# [AGENT-EDIT]: Replace <INSERT_MAIN_PACKAGE_PATH> with the path to the main package
+#               relative to the module root (e.g., ./cmd/server, ./cmd/api, or . ).
+RUN CGO_ENABLED=0 GOOS=linux \
+    go build \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /app/server \
+    <INSERT_MAIN_PACKAGE_PATH>
+
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Final Runtime Image - scratch (zero-OS)
+# -----------------------------------------------------------------------------
+# [AGENT-LOCK]: The final stage MUST be scratch for Go services to minimise
+#               the attack surface. The only approved alternative is:
+#               gcr.io/distroless/static-debian12
+#               which may be used ONLY when the binary requires CA certificates
+#               (HTTPS outbound calls) or IANA timezone data.
+#               Do NOT use any other base image without a platform team exception.
+FROM scratch AS final
+
+# [AGENT-LOCK]: If HTTPS/TLS calls are required, CA certificates must be copied
+#               from the builder. Remove this block only if all egress is plaintext
+#               or proxied through a sidecar that handles TLS.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# [AGENT-LOCK]: Copy /etc/passwd from the build stage so the non-root user
+#               exists within the scratch image. This is the ONLY way to set
+#               USER in a scratch-based container.
+COPY --from=build /etc/passwd /etc/passwd
+COPY --from=build /etc/group  /etc/group
+
+# [AGENT-LOCK]: Copy the compiled binary from the build stage.
+#               The destination path /app/server is the platform standard.
+COPY --from=build /app/server /app/server
+
+# [AGENT-LOCK]: Non-root user enforcement in scratch images uses the numeric UID
+#               because there is no shell to resolve usernames. UID 1001 is the
+#               platform standard. Do NOT run as UID 0 (root).
+USER 1001:1001
+
+# [AGENT-EDIT]: Expose the port your application listens on.
+#               Replace <INSERT_PORT> with the actual port number (e.g., 8080).
+EXPOSE <INSERT_PORT>
+
+# [AGENT-EDIT]: Set any required runtime environment variables.
+#               Replace <INSERT_ENV_KEY> and <INSERT_ENV_VALUE>, or remove if
+#               all configuration is supplied via Kubernetes ConfigMaps/Secrets.
+# ENV <INSERT_ENV_KEY>=<INSERT_ENV_VALUE>
+
+# [AGENT-LOCK]: ENTRYPOINT is used (not CMD) to prevent accidental override of
+#               the binary path in downstream deployments.
+ENTRYPOINT ["/app/server"]

@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://oauth2-proxy.github.io/manifests"
+    chart: oauth2-proxy
+    targetRevision: 10.4.3
+    helm:
+      values: |
+        config:
+          configFile: |-
+            provider = "gitlab"
+            email_domains = [ "*" ]
+            upstreams = [ "file:///dev/null" ]
+        extraArgs:
+          oidc-issuer-url: "https://gitlab.com"
+          # add group-level auth
+          gitlab-group: "your-org/idp-platform"
+        extraEnv:
+          - name: OAUTH2_PROXY_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: oauth2-proxy-creds
+                key: client-id
+          - name: OAUTH2_PROXY_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: oauth2-proxy-creds
+                key: client-secret
+          - name: OAUTH2_PROXY_COOKIE_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: oauth2-proxy-creds
+                key: cookie-secret
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: adk-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,61 @@
+# ============================================================
+# ArgoCD Application Template
+# ============================================================
+# [AGENT-EDIT] Replace all <PLACEHOLDER> values with actual
+#              deployment-specific values.
+# [AGENT-LOCK] Do not modify the sync policy, retry strategy,
+#              or the destination server URL. These are
+#              platform-enforced GitOps standards.
+# ============================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # [AGENT-EDIT] Application name (should match the app name)
+  name: <APP_NAME>
+  # [AGENT-LOCK] ArgoCD applications live in the argocd namespace - DO NOT MODIFY
+  namespace: argocd
+  labels:
+    # [AGENT-EDIT]
+    app.kubernetes.io/name: <APP_NAME>
+    app.kubernetes.io/managed-by: adk-platform
+spec:
+  # [AGENT-EDIT] ArgoCD project (typically "default")
+  project: <ARGOCD_PROJECT>
+
+  source:
+    # [AGENT-EDIT] GitLab deployment repository URL SPECIAL INSTRUCTION: always add the .git suffix to the URL
+    repoURL: <GITLAB_REPO_URL>
+    # [AGENT-EDIT] Branch to monitor
+    targetRevision: <TARGET_BRANCH>
+    # [AGENT-LOCK] Manifests directory - DO NOT MODIFY
+    # All Kubernetes manifests must reside under manifests/
+    path: manifests
+
+  destination:
+    # [AGENT-LOCK] Cluster API server - DO NOT MODIFY
+    # Always deploy to the local (in-cluster) API server.
+    server: https://kubernetes.default.svc
+    # [AGENT-EDIT] Target namespace for the application workloads
+    namespace: <NAMESPACE>
+
+  # ──────────────────────────────────────────────────────────
+  # [AGENT-LOCK] Sync policy - DO NOT MODIFY
+  # Automated sync with self-heal and pruning ensures the
+  # cluster state always matches the Git repository.
+  # ──────────────────────────────────────────────────────────
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PruneLast=true
+
+    # [AGENT-LOCK] Retry strategy - DO NOT MODIFY
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
