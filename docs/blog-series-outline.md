@@ -1,10 +1,12 @@
 # Blog series outline - "Building an AI-driven Internal Developer Platform"
 
-A 6–7 post series, roughly one post per layer, published over ~2 months. Each post is standalone-readable and ends with an honest "what was hard / what we'd change" section. The companion source is this repository.
+A 6-post series, roughly one post per layer, published over ~2 months. Each post is standalone-readable. The companion source is this repository. Drafts live in `docs/blog/`.
 
-**Framing:** this is an *architecture-and-decisions* narrative, not a copy-paste tutorial. The platform ran on a now-decommissioned OVH + GitLab setup, so posts should narrate decisions and show real outputs rather than promise a reproducible deploy. Credit the team per FlowFactor's convention.
+**Framing:** this is an *architecture-and-decisions* narrative, not a copy-paste tutorial. The platform ran on a now-decommissioned OVH + GitLab setup, so posts narrate decisions and show real outputs rather than promise a reproducible deploy. Voice is FlowFactor's ("the platform that was built / that we own"), not a claim of authorship; the intern, Nand, is credited by name (lightly in Posts 1 and 5, with a full thank-you closing Post 6).
 
-**Narrative order follows the dependency chain:** `infrastructure` → `gitops` → `templates` → `orchestrator` → demo.
+**Narrative order follows the dependency chain:** `infrastructure` → `gitops` → `templates` → `orchestrator`.
+
+> A standalone end-to-end **demo + retrospective** post was planned as a 7th but is **deferred for now**. The outline for it is kept at the bottom for later.
 
 ---
 
