@@ -66,9 +66,9 @@ Replace placeholders only within `# [AGENT-EDIT]:` blocks. Do not alter locked l
 
 ---
 
-## Security Baselines (AGENT-LOCK enforced)
+## Security Baselines (marked [AGENT-LOCK])
 
-These are locked constraints. Do not attempt to modify them.
+These constraints are marked `[AGENT-LOCK]` in the templates. The agent is instructed not to modify them; the annotations guide the agent and are not a technical enforcement mechanism.
 
 | Baseline | Enforcement |
 |---|---|
@@ -78,7 +78,7 @@ These are locked constraints. Do not attempt to modify them.
 | No dev dependencies in prod | Python uses `--prefix` copy; Node uses `--omit=dev`; Java skips test scope |
 | Static Go binaries | `CGO_ENABLED=0` and `-trimpath` are locked |
 | Spring Boot layer order | Dependency layers copied before application layers to maximise cache reuse |
-| CI image tagging | SHA-based image tags enforced |
+| CI image tagging | Pipeline pushes a short-SHA tag and `latest` |
 | K8s secret creation | Idempotent via `kubectl apply -f -` |
 
 ---
@@ -118,7 +118,7 @@ These are locked constraints. Do not attempt to modify them.
 
 **File:** `gitlab-ci.yml.template`
 
-The pipeline builds, tags (SHA-based), pushes images, and creates/updates Kubernetes image pull secrets.
+The pipeline builds, tags (short SHA plus `latest`), pushes images, and creates/updates Kubernetes image pull secrets.
 
 CI-specific placeholders to inject:
 

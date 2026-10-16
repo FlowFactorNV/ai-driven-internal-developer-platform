@@ -72,4 +72,4 @@ The `.gitignore` excludes sensitive and generated files:
 
 This is the `infrastructure/` layer of the monorepo. The services it bootstraps via ArgoCD live in [`../gitops`](../gitops); the golden-path templates in [`../templates`](../templates); the AI control plane in [`../orchestrator`](../orchestrator). See the [root README](../README.md) for how they fit together.
 
-> In the original internship setup these layers were separate GitLab repositories (plus a separate test-environment manifests repo). The ArgoCD `repoURL`s under `iac/k8s/manifests/` still reflect that multi-repo origin.
+> In the original setup these layers were separate GitLab repositories (plus a separate test-environment manifests repo). The ArgoCD `repoURL`s under `iac/k8s/manifests/` still reflect that multi-repo origin.

@@ -10,7 +10,7 @@ This is the **GitOps desired state** for the platform: the single source of trut
 
 - **cert-manager** - Let's Encrypt automation; provides the `letsencrypt-prod` ClusterIssuer so any ingress gets automatic TLS via an annotation.
 - **ingress-nginx** - the ingress controller (OVH load balancer, proxy protocol).
-- **oauth** - oauth2-proxy for GitLab group-scoped SSO in front of platform UIs.
+- **oauth** - oauth2-proxy for GitLab group-scoped SSO in front of the agent interface.
 - **harbor** - the private container registry (Trivy scanning, block-storage PVCs).
 - **prometheus** - kube-prometheus-stack: Prometheus, Grafana, Alertmanager (Slack routing).
 - **sonarqube** - SonarQube + a dedicated Postgres for the code-quality gate.

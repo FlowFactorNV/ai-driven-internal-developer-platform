@@ -85,7 +85,7 @@ Sub-agents are discovered through Kubernetes DNS (`*-agent-svc.adk-platform.svc.
 
 ## Deployment workflow
 
-The orchestrator enforces a strict **8-step sequential workflow**. Every step has explicit success conditions and failure paths - the agent never skips ahead.
+The orchestrator is instructed to follow a strict **8-step sequential workflow**. Every step has explicit success conditions and failure paths. These rules live in the agent's natural-language instructions: they guide the model, but they are not technically enforced.
 
 ```
 Step 1 - Greeting & repository intake
@@ -106,8 +106,8 @@ Step 4 - Branch & merge request on the developer's repo
   │      and open a merge request against the default branch.
   ▼
 Step 5 - Wait for pipeline success
-  │      After the developer merges, the CI builds the image with Kaniko,
-  │      runs the SonarQube gate, and pushes to Harbor. Poll until green.
+  │      After the developer merges, the CI runs the SonarQube analysis,
+  │      builds the image with Docker-in-Docker, and pushes to Harbor. Poll until green.
   ▼
 Step 6 - Manifest generation & push
   │      Generate Namespace, Deployment, Service, NetworkPolicy,
@@ -174,8 +174,8 @@ orchestrator/
 The single user-facing agent. It owns the entire deployment conversation and delegates silently to sub-agents.
 
 - **Communication gatekeeper** - sub-agents never speak to the user; all results are relayed by the orchestrator.
-- **Workflow enforcer** - follows the 8-step process strictly; never skips steps, never proceeds on failure.
-- **Security enforcer** - refuses root containers, plaintext secrets, out-of-scope cluster modifications, and production deployments.
+- **Workflow guide** - instructed to follow the 8-step process strictly, not to skip steps and not to proceed on failure.
+- **Security rules** - instructed to refuse root containers, plaintext secrets, out-of-scope cluster modifications, and production deployments.
 - **Task delegation** - sends structured `[TASK]` blocks to sub-agents over A2A.
 
 ### GitLab agent
@@ -231,7 +231,7 @@ Constraints: never creates `ClusterRoleBindings` or grants `cluster-admin`, neve
 
 ## Security & guardrails
 
-| Policy                           | Enforcement                                                             |
+| Policy                           | How it is applied                                                       |
 |----------------------------------|-------------------------------------------------------------------------|
 | No root containers               | Deployment templates enforce `runAsNonRoot`, non-root UID, dropped caps, read-only root FS. |
 | No plaintext secrets             | Pull secrets are generated in-namespace by the pipeline from Harbor robot accounts. |
@@ -239,7 +239,7 @@ Constraints: never creates `ClusterRoleBindings` or grants `cluster-admin`, neve
 | Namespace isolation              | Agents operate only within the target namespace.                        |
 | No cluster-wide RBAC changes     | `ClusterRoleBindings` / `cluster-admin` are explicitly forbidden.       |
 | No production deployments        | Production environments are out of scope.                               |
-| Sequential workflow enforcement  | Steps cannot be skipped, even on request.                               |
+| Sequential workflow              | The agent is instructed not to skip steps, even on request.             |
 | Scoped GitLab access             | All operations limited to the authorised GitLab group.                  |
 
 ---
