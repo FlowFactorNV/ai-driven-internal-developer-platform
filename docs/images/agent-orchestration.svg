@@ -46,7 +46,7 @@
   <g stroke="#93C5FD" stroke-width="1.8" fill="none"><rect x="696" y="280" width="22" height="18" rx="5"/><line x1="707" y1="280" x2="707" y2="273"/></g>
   <circle cx="707" cy="272" r="2.4" fill="#93C5FD"/><circle cx="702" cy="289" r="2" fill="#93C5FD"/><circle cx="712" cy="289" r="2" fill="#93C5FD"/>
   <text x="732" y="287" class="tm" fill="#DBEAFE">Orchestrator Agent</text>
-  <text x="732" y="312" class="sm" fill="#93C5FD">(devportal/adk)</text>
+  <text x="732" y="312" class="sm" fill="#93C5FD">(orchestrator)</text>
 
   <!-- GitLab Agent -->
   <rect x="485" y="408" width="270" height="282" rx="10" fill="#13294D" stroke="#3B82F6" stroke-width="1.5"/>
@@ -54,7 +54,7 @@
   <circle cx="513" cy="426" r="2.4" fill="#93C5FD"/><circle cx="508" cy="443" r="2" fill="#93C5FD"/><circle cx="518" cy="443" r="2" fill="#93C5FD"/>
   <text x="536" y="449" class="tm" fill="#DBEAFE">GitLab Agent</text>
   <text x="504" y="492" class="t" fill="#BFDBFE">&#8226; Analyze repos</text>
-  <text x="504" y="522" class="t" fill="#BFDBFE">&#8226; Clone templates</text>
+  <text x="504" y="522" class="t" fill="#BFDBFE">&#8226; Fetch templates</text>
   <text x="504" y="552" class="t" fill="#BFDBFE">&#8226; Create branches</text>
   <text x="504" y="582" class="t" fill="#BFDBFE">&#8226; Commit files</text>
   <text x="504" y="612" class="t" fill="#BFDBFE">&#8226; Open Merge Requests</text>
@@ -97,7 +97,7 @@
   <text x="70" y="780" class="ti" fill="#F2C879">GitLab.com</text>
   <text x="68" y="818" class="sm" fill="#E8D9B5">&#8226; Hosts developer repos and</text>
   <text x="82" y="837" class="sm" fill="#E8D9B5">CI/CD pipelines</text>
-  <text x="68" y="868" class="sm" fill="#E8D9B5">&#8226; Kaniko image build process</text>
+  <text x="68" y="868" class="sm" fill="#E8D9B5">&#8226; Docker-in-Docker image build</text>
 
   <!-- ===== GitOps / Registry ===== -->
   <rect x="485" y="945" width="290" height="92" rx="12" fill="#163A1E" stroke="#4ADE80" stroke-width="2"/>
@@ -133,9 +133,9 @@
   <!-- gitlab-mcp -> GitLab.com (external API) -->
   <line x1="483" y1="806" x2="352" y2="806" stroke="#D9A441" stroke-width="2.2" stroke-dasharray="2 6" marker-end="url(#aAmber)"/>
   <text x="360" y="796" class="sm it" fill="#F2C879">GitLab REST API</text>
-  <!-- GitLab.com -> Harbor (Kaniko push) -->
+  <!-- GitLab.com -> Harbor (image push) -->
   <path d="M198,910 L198,992 L481,992" fill="none" stroke="#D9A441" stroke-width="2.2" stroke-dasharray="2 6" marker-end="url(#aAmber)"/>
-  <text x="70" y="950" class="sm it" fill="#F2C879">Kaniko push</text>
+  <text x="70" y="950" class="sm it" fill="#F2C879">Image push</text>
   <text x="70" y="968" class="sm it" fill="#F2C879">(container image)</text>
   <!-- kubernetes-mcp -> ArgoCD (K8s API) -->
   <line x1="1000" y1="858" x2="1000" y2="943" stroke="#4ADE80" stroke-width="2.2" stroke-dasharray="8 6" marker-end="url(#aGreen)"/>
@@ -167,8 +167,8 @@
   <text x="1240" y="391" class="t" fill="#E5E7EB">Dockerfile + manifests + CI config,</text>
   <text x="1240" y="410" class="t" fill="#E5E7EB">opens MR</text>
   <text x="1240" y="495" class="t" fill="#E5E7EB">Developer reviews and merges MR</text>
-  <text x="1240" y="559" class="t" fill="#E5E7EB">GitLab CI builds image via Kaniko,</text>
-  <text x="1240" y="578" class="t" fill="#E5E7EB">pushes to Harbor</text>
+  <text x="1240" y="559" class="t" fill="#E5E7EB">GitLab CI builds the image with</text>
+  <text x="1240" y="578" class="t" fill="#E5E7EB">Docker-in-Docker, pushes to Harbor</text>
   <text x="1240" y="647" class="t" fill="#E5E7EB">Kubernetes Agent applies Namespace</text>
   <text x="1240" y="666" class="t" fill="#E5E7EB">+ ArgoCD Application</text>
   <text x="1240" y="735" class="t" fill="#E5E7EB">ArgoCD syncs; developer receives</text>

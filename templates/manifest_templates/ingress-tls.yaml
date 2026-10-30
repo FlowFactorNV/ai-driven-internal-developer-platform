@@ -7,10 +7,12 @@
 #              pathType, or TLS structure. These are platform
 #              standards.
 #
-# IMPORTANT: cert-manager is NOT installed on this cluster.
-# The developer must manually create a Kubernetes TLS Secret
-# containing their certificate and private key in the target
-# namespace BEFORE the Ingress will serve HTTPS traffic.
+# NOTE: cert-manager IS installed on this cluster, so the default
+# ingress.yaml template provisions certificates automatically via the
+# "letsencrypt-prod" ClusterIssuer. Use THIS template only for the rare
+# case where you must bring your own certificate: create a Kubernetes
+# TLS Secret containing the cert and private key in the target namespace
+# BEFORE the Ingress will serve HTTPS traffic.
 # ============================================================
 
 apiVersion: networking.k8s.io/v1

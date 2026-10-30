@@ -40,9 +40,9 @@ spec:
       # ──────────────────────────────────────────────
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
 
       # ──────────────────────────────────────────────
       # [AGENT-LOCK] Image pull secret - DO NOT MODIFY
@@ -56,14 +56,16 @@ spec:
         # [AGENT-EDIT] Container name (usually same as app name)
         - name: <APP_NAME>
           volumeMounts:
-        - name: tmp-volume
-          mountPath: /tmp
+            - name: tmp-volume
+              mountPath: /tmp
 
-          # [AGENT-EDIT] Inject the APP_NAME. Full image URI from Harbor (harbor.devportal.example.com). ALWAYS USE ":latest" tag
-          image: harbor.devportal.example.com/apps/<APP_NAME>:latest
+          # [AGENT-EDIT] Full Harbor image URI including the commit short SHA tag
+          # (immutable and rollback-able; matches the image CI built and pushed),
+          # e.g. harbor.devportal.example.com/apps/<app_name>:<short-sha>
+          image: <CONTAINER_IMAGE>
 
-          # [AGENT-LOCK] Always pull to ensure latest image - DO NOT MODIFY
-          imagePullPolicy: Always
+          # [AGENT-LOCK] imagePullPolicy - DO NOT MODIFY
+          imagePullPolicy: IfNotPresent
 
           ports:
             - containerPort: <CONTAINER_PORT> # [AGENT-EDIT]

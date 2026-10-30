@@ -140,11 +140,11 @@ orchestrator/
 │
 ├── gitlab_agent/
 │   ├── __init__.py                # GitLab sub-agent: MCP (SSE) toolset + instructions
-│   └── agent.json                 # A2A agent card
+│   └── agent-card.json            # A2A agent card (.well-known/agent-card.json)
 │
 ├── kubernetes_agent/
 │   ├── __init__.py                # Kubernetes sub-agent: MCP (SSE) toolset + instructions
-│   └── agent.json                 # A2A agent card
+│   └── agent-card.json            # A2A agent card (.well-known/agent-card.json)
 │
 ├── docker/
 │   ├── Dockerfile.orchestrator

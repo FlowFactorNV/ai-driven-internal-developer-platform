@@ -17,6 +17,9 @@ This is the **GitOps desired state** for the platform: the single source of trut
 - **gitlab-runner** - CI runners pinned to the isolated CI node pool.
 - **gitlab-mcp / kubernetes-mcp** - the MCP servers the AI agents call, with least-privilege RBAC.
 - **argocd-expose** - ingress for the ArgoCD UI.
+- **argo-notifications** - ArgoCD notifications configuration (Slack).
+
+> The ArgoCD `Application` manifests here still reference a `.../cluster_infrastructure.git` repoURL from the original multi-repo setup; in this monorepo that content lives under `gitops/`.
 
 ## Why the MCP servers run on the cluster
 

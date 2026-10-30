@@ -10,11 +10,11 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 # Override these env vars for local development (e.g. http://localhost:8001).
 _gitlab_agent_url = os.environ.get(
     "GITLAB_AGENT_URL",
-    "http://gitlab-agent-svc.adk-platform.svc.cluster.local:8000/a2a/gitlab_agent/.well-known/agent.json",
+    "http://gitlab-agent-svc.adk-platform.svc.cluster.local:8000/a2a/gitlab_agent/.well-known/agent-card.json",
 )
 _kubernetes_agent_url = os.environ.get(
     "KUBERNETES_AGENT_URL",
-    "http://kubernetes-agent-svc.adk-platform.svc.cluster.local:8000/a2a/kubernetes_agent/.well-known/agent.json",
+    "http://kubernetes-agent-svc.adk-platform.svc.cluster.local:8000/a2a/kubernetes_agent/.well-known/agent-card.json",
 )
 
 gitlab_remote = RemoteA2aAgent(
@@ -407,7 +407,6 @@ PLACEHOLDER REFERENCE - DOCKERFILES & CI
   <INSERT_BUILD_CONTEXT>      - CI: Directory containing the Dockerfile
   <INSERT_TARGET_NAMESPACE>   - CI: Target Kubernetes namespace (derived: <app_name>-<session_id>-ns)
   <INSERT_SECRET_NAME>        - CI: K8s image pull secret name (always registry-credentials)
-  <INSERT_REGISTRY_USER>      - CI: Harbor robot account username ($HARBOR_ROBOT_USER)
 
 ────────────────────────────────────────────────────────
 PLACEHOLDER REFERENCE - KUBERNETES MANIFESTS
@@ -423,6 +422,7 @@ PLACEHOLDER REFERENCE - KUBERNETES MANIFESTS
   <MEMORY_REQUEST>    - Memory request (from resource tier)
   <MEMORY_LIMIT>      - Memory limit (from resource tier)
   <HOSTNAME>          - Ingress hostname / domain
+  <ENDPOINT_PATH>     - Ingress path prefix (e.g. /)
   <TLS_SECRET_NAME>   - Manually provisioned TLS Secret name
   <GITLAB_REPO_URL>   - The user's original repository URL (for ArgoCD)
   <TARGET_BRANCH>     - Git branch ArgoCD monitors (always "main" - after MR merge)

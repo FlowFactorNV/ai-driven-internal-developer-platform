@@ -55,6 +55,6 @@ Placeholders use the format `<PLACEHOLDER_NAME>` (e.g., `<APP_NAME>`, `<NAMESPAC
 | `deployment.yaml`           | Deployment with security context and resource limits |
 | `service.yaml`              | ClusterIP Service                                |
 | `networkpolicy.yaml`        | Default-deny + allow ingress NetworkPolicy       |
-| `ingress.yaml`              | NGINX Ingress (HTTP only)                        |
+| `ingress.yaml`              | NGINX Ingress (automatic TLS via cert-manager)   |
 | `ingress-tls.yaml`          | NGINX Ingress (HTTPS with manual TLS Secret)     |
 | `argocd-application.yaml`   | ArgoCD Application for GitOps sync               |

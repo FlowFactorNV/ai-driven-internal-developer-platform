@@ -20,7 +20,7 @@ The golden-path template library: hardened Dockerfiles, a generic CI pipeline, a
 ```text
 idp-dockerfile-templates/
 ├── README.md
-├── gitlab-ci.yml.template           # Generic CI pipeline: build/push + K8s secret creation
+├── .gitlab-ci.yml.template          # Generic CI pipeline: build/push + K8s secret creation
 ├── python/
 │   └── Dockerfile.template          # FastAPI / Generic WSGI (multi-stage, pip)
 ├── nodejs/
@@ -61,8 +61,7 @@ Replace placeholders only within `# [AGENT-EDIT]:` blocks. Do not alter locked l
 | `<INSERT_ENV_KEY/VALUE>` | go | Runtime environment variables |
 | `<INSERT_BUILD_CONTEXT>` | gitlab-ci | `.` or `python/` |
 | `<INSERT_TARGET_NAMESPACE>` | gitlab-ci | `app-frontend-prod` |
-| `<INSERT_SECRET_NAME>` | gitlab-ci | `registry-pull-secret` |
-| `<INSERT_REGISTRY_USER>` | gitlab-ci | `gitlab+deploy-token-123` |
+| `<INSERT_SECRET_NAME>` | gitlab-ci | `registry-credentials` |
 
 ---
 
@@ -116,7 +115,7 @@ These constraints are marked `[AGENT-LOCK]` in the templates. The agent is instr
 
 ## GitLab CI Pipeline
 
-**File:** `gitlab-ci.yml.template`
+**File:** `.gitlab-ci.yml.template`
 
 The pipeline builds, tags (short SHA plus `latest`), pushes images, and creates/updates Kubernetes image pull secrets.
 
@@ -126,8 +125,7 @@ CI-specific placeholders to inject:
 |---|---|
 | `<INSERT_BUILD_CONTEXT>` | Directory containing the Dockerfile (e.g. `.`, `python/`) |
 | `<INSERT_TARGET_NAMESPACE>` | Kubernetes namespace (e.g. `app-frontend-prod`) |
-| `<INSERT_SECRET_NAME>` | Name of the Kubernetes image pull secret |
-| `<INSERT_REGISTRY_USER>` | GitLab Deploy Token username |
+| `<INSERT_SECRET_NAME>` | Name of the Kubernetes image pull secret (always `registry-credentials`) |
 | `<INSERT_IMAGE_NAME>` | Name of the Docker Image (e.g. `app_name`), should default to the app_name variable set by the user|
 
 

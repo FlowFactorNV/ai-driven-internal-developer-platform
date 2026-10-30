@@ -79,6 +79,7 @@ PLACEHOLDER REFERENCE:
   <MEMORY_REQUEST>    - Memory request (from resource tier)
   <MEMORY_LIMIT>      - Memory limit (from resource tier)
   <HOSTNAME>          - Ingress hostname / domain
+  <ENDPOINT_PATH>     - Ingress path prefix (e.g. /)
   <TLS_SECRET_NAME>   - Manually provisioned TLS Secret name
   <GITLAB_REPO_URL>   - The user's ORIGINAL repository URL (for ArgoCD to monitor).
                          This is NOT a separate deployment repo - ArgoCD watches

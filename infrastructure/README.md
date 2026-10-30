@@ -16,7 +16,8 @@ ovh-cicd/
     ├── bootstrap/          # Bootstrap-phase Terraform configs
     └── k8s/                # Kubernetes infrastructure Terraform configs
         └── manifests/
-            └── root-app.yaml   # ArgoCD root Application manifest
+            ├── root-app.yaml   # ArgoCD root Application manifest
+            └── runner.yaml     # ArgoCD Application for the GitLab runner
 ```
 
 ## CI/CD Pipeline
@@ -39,7 +40,7 @@ After infrastructure apply, this stage uses `bitnami/kubectl` to:
 
 1. Check if ArgoCD is already installed; if not, install it from the stable manifest and wait for readiness.
 2. Inject group-scoped GitLab repository credentials as a Kubernetes Secret (an ArgoCD `repo-creds` entry for the GitLab group) so ArgoCD can pull the platform manifests.
-3. Create the `gitlab-runner` namespace and inject the GitLab Runner token as a Secret.
+3. Inject the remaining platform credentials as Kubernetes Secrets into their namespaces: the GitLab Runner authentication token, the Harbor admin password, the oauth2-proxy client/cookie secrets, the SonarQube + Postgres passwords, the Grafana admin credentials, and the Alertmanager Slack webhook.
 4. Restart the `argocd-repo-server` deployment and apply the ArgoCD root application from `iac/k8s/manifests/root-app.yaml`.
 
 ## Required CI/CD Variables
@@ -49,7 +50,13 @@ These must be set as masked variables in GitLab CI settings:
 | Variable | Purpose |
 |---|---|
 | `ARGOCD_GITLAB_TOKEN` | GitLab personal access token for ArgoCD repo access |
-| `GITLAB_RUNNER_TOKEN` | Registration token for the GitLab Runner |
+| `ARGOCD_SLACK_TOKEN` | Slack token for ArgoCD notifications |
+| `GITLAB_RUNNER_TOKEN` | Authentication token for the GitLab Runner |
+| `HARBOR_ADMIN_PASSWORD` | Harbor admin password |
+| `OAUTH2_PROXY_CLIENT_ID` / `..._CLIENT_SECRET` / `..._COOKIE_SECRET` | oauth2-proxy GitLab OIDC client + cookie secret |
+| `SONAR_POSTGRES_PASS` / `..._ADMIN_PASS` / `SONAR_MONITORING_PASS` / `SONAR_ADMIN_PASSWORD` | SonarQube + Postgres credentials |
+| `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASS` | Grafana admin credentials |
+| `ALERTMANAGER_SLACK_HOOK_URL` | Alertmanager Slack webhook URL |
 
 ## IaC Layout
 
